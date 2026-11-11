@@ -287,13 +287,19 @@ app.get('/api/leaderboard', authenticate, asyncRoute(async (_req, res) => {
   })) });
 }));
 
-app.get('/api/activity', authenticate, asyncRoute(async (_req, res) => {
-  const result = await pool.query(submissionSelect + ' ORDER BY s.updated_at DESC LIMIT 8');
+app.get('/api/activity', authenticate, asyncRoute(async (req, res) => {
+  const query = req.user.role === 'STUDENT'
+    ? submissionSelect + ' WHERE s.submitted_by=$1 ORDER BY s.updated_at DESC LIMIT 8'
+    : submissionSelect + ' ORDER BY s.updated_at DESC LIMIT 8';
+  const result = await pool.query(query, req.user.role === 'STUDENT' ? [req.user.sub] : []);
   res.json({ activities: result.rows.map(shapeSubmission) });
 }));
 
-app.get('/api/reports/export.csv', authenticate, asyncRoute(async (_req, res) => {
-  const result = await pool.query(submissionSelect + ' ORDER BY s.created_at DESC');
+app.get('/api/reports/export.csv', authenticate, asyncRoute(async (req, res) => {
+  const query = req.user.role === 'STUDENT'
+    ? submissionSelect + ' WHERE s.submitted_by=$1 ORDER BY s.created_at DESC'
+    : submissionSelect + ' ORDER BY s.created_at DESC';
+  const result = await pool.query(query, req.user.role === 'STUDENT' ? [req.user.sub] : []);
   const cell = (value) => '"' + String(value ?? '').replaceAll('"', '""') + '"';
   const lines = [['Title', 'Category', 'Indicator', 'Department', 'Contributor', 'Email', 'Year', 'Status', 'Points', 'Reviewer', 'Reviewer note'].map(cell).join(',')];
   for (const r of result.rows) {
